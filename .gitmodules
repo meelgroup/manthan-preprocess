@@ -4,3 +4,4 @@
 [submodule "cryptominisat"]
 	path = cryptominisat
 	url = git@github.com:meelgroup/cryptominisat-manthan.git
+	branch = manthan-arm-fixes
