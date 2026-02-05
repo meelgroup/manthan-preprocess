@@ -45,7 +45,6 @@ using std::vector;
 #include "MersenneTwister.h"
 
 #include <cryptominisat5/cryptominisat.h>
-#include "cryptominisat5/dimacsparser.h"
 #include "cryptominisat5/streambuffer.h"
 
 using namespace CMSat;
@@ -257,14 +256,133 @@ void add_supported_options(int argc, char** argv)
     }
 }
 
+template <class Stream>
+static bool parse_dimacs_stream(Stream& in, uint32_t var_offset, bool get_sampling_set)
+{
+    vector<Lit> lits;
+    vector<int32_t> temp_vector;
+    bool header_found = false;
+    size_t line_num = 0;
+
+    auto skip_line = [&]() {
+        in.skipLine();
+        line_num++;
+    };
+
+    vector<uint32_t> ignored_vars;
+    auto parse_comment_vars = [&](vector<uint32_t>& out) -> bool {
+        int32_t parsed_lit = 0;
+        for (;;) {
+            if (!in.parseInt(parsed_lit, line_num)) {
+                return false;
+            }
+            if (parsed_lit == 0) {
+                break;
+            }
+            uint32_t var = std::abs(parsed_lit) - 1;
+            out.push_back(var);
+        }
+        skip_line();
+        return true;
+    };
+
+    for (;;) {
+        in.skipWhitespace();
+        int c = *in;
+        if (c == EOF || c == '\0') {
+            break;
+        }
+
+        if (c == '\n') {
+            ++in;
+            line_num++;
+            continue;
+        }
+
+        if (c == 'c') {
+            ++in;
+            std::string tag;
+            in.parseString(tag);
+            if (tag == "ind") {
+                if (get_sampling_set) {
+                    if (!parse_comment_vars(*sampling_set)) {
+                        return false;
+                    }
+                } else {
+                    if (!parse_comment_vars(ignored_vars)) {
+                        return false;
+                    }
+                }
+            } else if (tag == "ret") {
+                if (!parse_comment_vars(x_vars)) {
+                    return false;
+                }
+            } else {
+                skip_line();
+            }
+            continue;
+        }
+
+        if (c == 'p') {
+            ++in;
+            std::string type;
+            in.parseString(type);
+            if (type != "cnf") {
+                cerr << "ERROR: only CNF input is supported" << endl;
+                return false;
+            }
+            int32_t vars = 0;
+            int32_t cls = 0;
+            if (!in.parseInt(vars, line_num) || !in.parseInt(cls, line_num)) {
+                return false;
+            }
+            header_found = true;
+            skip_line();
+            (void)vars;
+            (void)cls;
+            continue;
+        }
+
+        if (c == 'a' || c == 'e') {
+            skip_line();
+            continue;
+        }
+
+        // Clause parsing: read literals until 0
+        lits.clear();
+        temp_vector.clear();
+        for (;;) {
+            int32_t parsed_lit = 0;
+            if (!in.parseInt(parsed_lit, line_num)) {
+                return false;
+            }
+            if (parsed_lit == 0) {
+                break;
+            }
+            uint32_t var = std::abs(parsed_lit) - 1 + var_offset;
+            if (var >= solver->nVars()) {
+                solver->new_vars(var - solver->nVars() + 1);
+            }
+            temp_vector.push_back(parsed_lit);
+            lits.push_back((parsed_lit > 0) ? Lit(var, false) : Lit(var, true));
+        }
+        solver->add_clause(lits);
+        clauses_list.push_back(temp_vector);
+    }
+
+    if (!header_found) {
+        cerr << "ERROR: Missing DIMACS header (p cnf ...)" << endl;
+        return false;
+    }
+    return true;
+}
+
 void readInAFile(const string& filename, uint32_t var_offset, bool get_sampling_set)
 {
     #ifndef USE_ZLIB
     FILE * in = fopen(filename.c_str(), "rb");
-    DimacsParser<StreamBuffer<FILE*, FN> > parser(solver, NULL, 0);
     #else
     gzFile in = gzopen(filename.c_str(), "rb");
-    DimacsParser<StreamBuffer<gzFile, GZ> > parser(solver, NULL, 0);
     #endif
 
     if (in == NULL) {
@@ -276,14 +394,16 @@ void readInAFile(const string& filename, uint32_t var_offset, bool get_sampling_
         std::exit(-1);
     }
 
-    if (!parser.parse_DIMACS(in, false, var_offset)) {
+    #ifndef USE_ZLIB
+    StreamBuffer<FILE*, FN> buffer(in);
+    #else
+    StreamBuffer<gzFile, GZ> buffer(in);
+    #endif
+
+    if (!parse_dimacs_stream(buffer, var_offset, get_sampling_set)) {
         exit(-1);
     }
-    if (get_sampling_set) {
-        *sampling_set = parser.sampling_vars;
-    }
-    clauses_list = parser.clauses_list;
-    x_vars = parser.x_vars;
+
     #ifndef USE_ZLIB
         fclose(in);
     #else
