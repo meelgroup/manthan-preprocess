@@ -1,6 +1,7 @@
 [submodule "louvain-community"]
 	path = louvain-community
 	url = git@github.com:meelgroup/louvain-community.git
+	branch = master
 [submodule "cryptominisat"]
 	path = cryptominisat
 	url = git@github.com:meelgroup/cryptominisat-manthan.git
