@@ -1,0 +1,43 @@
+name: build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake g++ zlib1g-dev libboost-program-options-dev
+
+      - name: Build CryptoMiniSat
+        run: |
+          cmake -S cryptominisat -B cryptominisat/build \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DENABLE_BREAKID=OFF \
+            -DENABLE_PYTHON_INTERFACE=OFF
+          cmake --build cryptominisat/build -j 2
+
+      - name: Build Louvain Community
+        run: |
+          cmake -S louvain-community -B louvain-community/build \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+          cmake --build louvain-community/build -j 2
+
+      - name: Build manthan-preprocess
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -Dlouvain_communities_DIR=./louvain-community/build
+          cmake --build build -j 2
