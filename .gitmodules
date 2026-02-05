@@ -1,8 +1,8 @@
 [submodule "louvain-community"]
 	path = louvain-community
-	url = https://github.com/meelgroup/louvain-community
+	url = git@github.com:meelgroup/louvain-community.git
 	branch = master
 [submodule "cryptominisat"]
 	path = cryptominisat
-	url = https://github.com/meelgroup/cryptominisat-manthan
+	url = git@github.com:meelgroup/cryptominisat-manthan.git
 	branch = manthan-arm-fixes
