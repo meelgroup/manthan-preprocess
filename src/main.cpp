@@ -494,40 +494,40 @@ void add_fixed_clauses()
         //it is now a pointer to a intvec
     solver->new_var();
     this_indic=solver-> nVars()-1;
-	tmp.clear();
-    tmp.push_back(Lit(this_indic,false));
     zvariables.push_back(this_indic);
         for(intvec::iterator jt = it->begin(); jt != it->end(); ++jt)
         {
 	    
-	    
 	    // jt is now a pointer to an integer.
 	    
 	    var=std::abs(*jt)-1;
+	    Lit lit_prime;
 	    if (Yvar_to_Ypvar.count(var)>0) {
 		      if (*jt>0){
-			tmp.push_back(Lit(Yvar_to_Ypvar[var],false));}
-		      else {
-			tmp.push_back(Lit(Yvar_to_Ypvar[var],true));} }
-	    else {
-	      find_var = find(x_vars.begin(), x_vars.end(), var);
-	      if(find_var!=x_vars.end())
-	      {
-		    if (*jt>0){
-		    tmp.push_back(Lit(var,false));}
-		  else {
-		    tmp.push_back(Lit(var,true));}
+			lit_prime = Lit(Yvar_to_Ypvar[var], false);
+		      } else {
+			lit_prime = Lit(Yvar_to_Ypvar[var], true);
+		      }
+	    } else {
+	      // Keep all non-Y literals (treat them as X) in the ~F(X,Y') copy
+	      if (*jt>0){
+		lit_prime = Lit(var,false);
+	      } else {
+		lit_prime = Lit(var,true);
 	      }
-		
-	    
-        }}
-        solver->add_clause(tmp); 
-	if (conf.verb){cout<<"adding clause : "<<tmp <<endl;}
+        }
+	    // Encode: z -> ~lit_prime  === (¬z ∨ ¬lit_prime)
+	    tmp.clear();
+	    tmp.push_back(Lit(this_indic, true)); // ¬z
+	    tmp.push_back(~lit_prime);
+	    solver->add_clause(tmp);
+	    if (conf.verb){cout<<"adding clause : "<<tmp <<endl;}
+        }
     }
     tmp.clear();
     for(uint32_t i = 0; i < zvariables.size() ; i++) {
-        tmp.push_back(Lit(zvariables[i],true));
-
+        // At least one clause must be falsified: z1 ∨ z2 ∨ ...
+        tmp.push_back(Lit(zvariables[i], false));
     }
     solver->add_clause(tmp); 
     if (conf.verb){cout<<"adding clause : "<<tmp <<endl;}
