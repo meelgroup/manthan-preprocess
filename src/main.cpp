@@ -556,8 +556,9 @@ void find_unate()
       if (conf.verb){
       cout<<"test var "<<var+1<< endl;}
       assumptions.pop_back();
-      assumptions.push_back(Lit(Yvar_to_Ypvar[var], true));
-      assumptions.push_back(Lit(var, false));
+      // Positive unate test: check UNSAT of F(y=0) & ~F(y'=1)
+      assumptions.push_back(Lit(Yvar_to_Ypvar[var], false)); // y' = 1
+      assumptions.push_back(Lit(var, true));                 // y = 0
       if (conf.verb){cout<<"assumptions : "<<assumptions<<endl;}
       solver->set_max_confl(50);
       solver->set_no_confl_needed();
@@ -578,17 +579,18 @@ void find_unate()
       if (ret == l_False) {
 	  postive_unate.push_back(var);
 	  tmp.clear();
-	  tmp.push_back(Lit(var,true));
+	  tmp.push_back(Lit(var,false)); // fix y = 1
 	  solver->add_clause(tmp);
 	  if (conf.verb){cout<<"positive unate : added clause : "<<tmp<<endl;}
 	  tmp.clear();
-	  tmp.push_back(Lit(Yvar_to_Ypvar[var],true));
+	  tmp.push_back(Lit(Yvar_to_Ypvar[var],false)); // fix y' = 1
 	  if (conf.verb){cout<<"positive unate : added clause : "<<tmp<<endl;}
 	  solver->add_clause(tmp);
       }
       else {
-	assumptions.push_back(Lit(Yvar_to_Ypvar[var], false));
-	assumptions.push_back(Lit(var, true));
+	// Negative unate test: check UNSAT of F(y=1) & ~F(y'=0)
+	assumptions.push_back(Lit(Yvar_to_Ypvar[var], true));  // y' = 0
+	assumptions.push_back(Lit(var, false));                // y = 1
 	if (conf.verb){cout<<" Not positive unate .. Searching for negative unate"<<endl;
 	cout<<"assumptions : "<<assumptions<<endl;}
 	solver->set_max_confl(50);
@@ -605,11 +607,11 @@ void find_unate()
 	if (ret == l_False) { 
 	  negative_unate.push_back(var);
 	  tmp.clear();
-	  tmp.push_back(Lit(var,false));
+	  tmp.push_back(Lit(var,true)); // fix y = 0
 	  solver->add_clause(tmp);
 	  if (conf.verb){cout<<"negative unate : added clause : "<<tmp<<endl;}
 	  tmp.clear();
-	  tmp.push_back(Lit(Yvar_to_Ypvar[var],false));
+	  tmp.push_back(Lit(Yvar_to_Ypvar[var],true)); // fix y' = 0
 	  if (conf.verb){cout<<"negative unate : added clause : "<<tmp<<endl;}
 	  solver->add_clause(tmp);
 	}
